@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <_name>Polygon</_name>
+  <id>eu.flk.laser.polygon</id>
+
+  <dependency type="executable" location="extensions">polygon.py</dependency>
+  <param name="tab" type="notebook">
+    <page name="page_1" _gui-text="shape options">
+      <param name="unit" _gui-text="Unit" type="optiongroup" appearance="minimal">
+        <option value="mm">mm</option>
+        <option value="cm">cm</option>
+        <option value="in">in</option>
+      </param>
+      <param name="name" type="description" appearance="header">Outer Shape</param>
+        <param name="o_type" _gui-text="Type" type="enum">
+        <item value="1">Circle</item>
+        <item value="2">Poygone</item>
+      </param>
+      <param name="o_radius" type="float" precision="3" min="0.0" max="10000.0" _gui-text="Radius">1.0</param>
+      <param name="o_edges" type="int" min="3" max="100" _gui-text="Edges">3</param>
+      <param name="o_r_type" type="enum" _gui-text="Radius">
+        <item value="1">to Edge</item>
+        <item value="2">to Face</item>
+        <item value="3">sidelength</item>
+      </param>
+      <param name="o_offset" type="float" precision="3" min="0.0" max="360.0" _gui-text="offset">0.0</param>
+      <param name="name" type="description" appearance="header">Inner Shape</param>
+      <param name="i_type" _gui-text="Type" type="enum">
+        <item value="0">non</item>
+        <item value="1">Circle</item>
+        <item value="2">Poygone</item>
+      </param>
+      <param name="i_radius" type="float" precision="3" min="0.0" max="10000.0" _gui-text="Radius">1.0</param>
+      <param name="i_edges" type="int" min="3" max="100" _gui-text="Edges">3</param>
+      <param name="i_r_type" _gui-text="Radius" type="enum">
+        <item value="1">to Edge</item>
+        <item value="2">to Face</item>
+        <item value="3">sidelength</item>
+      </param>
+      <param name="i_offset" type="float" precision="3" min="0.0" max="360.0" _gui-text="offset">0.0</param>
+    </page>
+    <page name="page_2" _gui-text="material options">
+      <param name="name" type="description" appearance="header">Material/Cutting Options</param>
+      <param name="kerf" type="float" precision="3"  min="0.0" max="10000.0" _gui-text="Kerf (cut width)">0.1</param>
+      <param name="spaceing" type="float" precision="3"  min="0.0" max="10000.0" _gui-text="spaceing">1</param>
+  
+      <param name="color1" type="string" _gui-text="color1">#000000</param>
+      <param name="color2" type="string" _gui-text="color2">#ff0000</param>
+      <param name="speed" type="int" min="500" max="100000" _gui-text="Speed">2500</param>
+      <param name="intensity" type="int" min="0" max="100" _gui-text="intensity">85</param>
+      <param name="pass_offset" type="int" min="0" max="100" _gui-text="Pass Offset">0</param>
+      <param name="lasertag" type="string" _gui-text="lasertag">=pass%n:%s:%i:%c=</param>
+    </page>
+  </param>
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu _name="Laser Tools" />
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">polygon.py</command>
+  </script>
+</inkscape-extension>
