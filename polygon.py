@@ -18,182 +18,163 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 __version__ = "0.8" ### please report bugs, suggestions etc to bugs@twot.eu ###
 
-import sys,inkex,simplestyle,gettext,math
-_ = gettext.gettext
+import inkex
+import math
+from lxml import etree
+from inkex import Color
+
 
 def drawS(XYstring,color):         # Draw lines from a list
-  name='part'
-  style = { 'stroke': color, 'fill': 'none' }
-  drw = {'style':simplestyle.formatStyle(style),inkex.addNS('label','inkscape'):name,'d':XYstring}
-  inkex.etree.SubElement(parent, inkex.addNS('path','svg'), drw )
-  return
-def groupdraw(XYstrings,colors)  :
-  if len(XYstrings)==1:
-    drawS(XYstrings[0],colors[0])
+    name='part'
+    style = { 'stroke': color, 'fill': 'none' }
+    drw = {'style':str(inkex.Style(style)),inkex.addNS('label','inkscape'):name,'d':XYstring}
+    etree.SubElement(parent, inkex.addNS('path','svg'), drw )
     return
-  grp_name = 'Group'
-  grp_attribs = {inkex.addNS('label','inkscape'):grp_name}
-  grp = inkex.etree.SubElement(parent, 'g', grp_attribs)#the group to put everything in
-  name='part'
-  for i in range(len(XYstrings)):
-    style = { 'stroke': colors[i], 'fill': 'none' }
-    drw = {'style':simplestyle.formatStyle(style),inkex.addNS('label','inkscape'):name+str(i),'d':XYstrings[i]}
-    inkex.etree.SubElement(grp, inkex.addNS('path','svg'), drw )
-  return
+  
+def groupdraw(XYstrings,colors)  :
+    if len(XYstrings)==1:
+        drawS(XYstrings[0],colors[0])
+        return
+    grp_name = 'Group'
+    grp_attribs = {inkex.addNS('label','inkscape'):grp_name}
+    grp = etree.SubElement(parent, 'g', grp_attribs)#the group to put everything in
+    name='part'
+    for i in range(len(XYstrings)):
+        style = { 'stroke': colors[i], 'fill': 'none' }
+        drw = {'style':str(inkex.Style(style)),inkex.addNS('label','inkscape'):name+str(i),'d':XYstrings[i]}
+        etree.SubElement(grp, inkex.addNS('path','svg'), drw )
+    return
 
 def svg_from_points(points,offset):
-  s='M'+str(points[0][0]+offset[0])+','+str(points[0][1]+offset[1])
-  for i in range(1,len(points)):
-    s+='L'+str(points[i][0]+offset[0])+','+str(points[i][1]+offset[1])
-  s+='Z'
-  return s
+    s='M'+str(points[0][0]+offset[0])+','+str(points[0][1]+offset[1])
+    for i in range(1,len(points)):
+        s+='L'+str(points[i][0]+offset[0])+','+str(points[i][1]+offset[1])
+    s+='Z'
+    return s
   
 class Polygon(inkex.Effect):
-  def __init__(self):
-      # Call the base class constructor.
-      inkex.Effect.__init__(self)
-      # Define options
-      self.OptionParser.add_option('--page',action='store',type='string',
-        dest='page',default='page_1')
-      self.OptionParser.add_option('--unit',action='store',type='string',
-        dest='unit',default='mm',help='Measure Units')
-      
-      self.OptionParser.add_option('--o_type', action='store',type='int',
-        dest='o_type', default=1,help='outer type')
-      self.OptionParser.add_option('--o_radius',action='store',type='float',
-        dest='o_radius',default=100,help='Outer Radius')
-      self.OptionParser.add_option('--o_edges', action='store',type='int',
-        dest='o_edges', default=1,help='outer edges')
-      self.OptionParser.add_option('--o_r_type', action='store',type='int',
-        dest='o_r_type', default=1,help='outer radius type')
-      self.OptionParser.add_option('--o_offset',action='store',type='float',
-        dest='o_offset',default=100,help='Outer Radius')
-        
-      self.OptionParser.add_option('--i_type', action='store',type='int',
-        dest='i_type', default=1,help='inter type')
-      self.OptionParser.add_option('--i_radius',action='store',type='float',
-        dest='i_radius',default=100,help='inter Radius')
-      self.OptionParser.add_option('--i_edges', action='store',type='int',
-        dest='i_edges', default=1,help='inter edges')
-      self.OptionParser.add_option('--i_r_type', action='store',type='int',
-        dest='i_r_type', default=1,help='inter radius type')
-      self.OptionParser.add_option('--i_offset',action='store',type='float',
-        dest='i_offset',default=100,help='Outer Radius')
-        
-      self.OptionParser.add_option('--kerf',action='store',type='float',
-        dest='kerf',default=0.5,help='Kerf (width) of cut')
-      self.OptionParser.add_option('--spaceing',action='store',type='float',
-        dest='spaceing',default=0.5,help='spaceing')
-        
-      self.OptionParser.add_option('--color1',action='store',type='string',
-        dest='color1',default="#000000",help='color1')
-      self.OptionParser.add_option('--color2',action='store',type='string',
-        dest='color2',default="#FF0000",help='color1')
-      self.OptionParser.add_option('--intensity', action='store',type='int',
-        dest='intensity', default=1,help='intensity')
-      self.OptionParser.add_option('--speed', action='store',type='int',
-        dest='speed', default=1,help='speed')
-      self.OptionParser.add_option('--pass_offset', action='store',type='int',
-        dest='pass_offset', default=1,help='pass_offset')
-      self.OptionParser.add_option('--lasertag',action='store',type='string',
-        dest='lasertag',default="=pass%n:%s:%i:%c=",help='color1')  
-  def effect(self):
-    global parent,nomTab,equalTabs,thickness,kerf,correction
-    
-        # Get access to main SVG document element and get its dimensions.
-    svg = self.document.getroot()
-    
-        # Get the attibutes:
-    widthDoc  = self.unittouu(svg.get('width'))
-    heightDoc = self.unittouu(svg.get('height'))
 
+    def __init__(self):
+        inkex.Effect.__init__(self)
+        self.arg_parser.add_argument('--page')
+        self.arg_parser.add_argument('--unit', default='mm', help='Measure Units')
+        self.arg_parser.add_argument('--o_type', type=int, default=1, help='Outer type')
+        self.arg_parser.add_argument('--o_radius',type=float, default=100, help='Outer Radius')
+        self.arg_parser.add_argument('--o_edges', type=int, default=1, help='Outer edges')
+        self.arg_parser.add_argument('--o_r_type', type=int, default=1, help='Outer radius type')
+        self.arg_parser.add_argument('--o_offset',type=float, default=100, help='Outer Radius')
+        self.arg_parser.add_argument('--i_type', type=int, default=1, help='Inner type')
+        self.arg_parser.add_argument('--i_radius',type=float, default=100, help='Inner Radius')
+        self.arg_parser.add_argument('--i_edges', type=int, default=1, help='Inner edges')
+        self.arg_parser.add_argument('--i_r_type', type=int, default=1, help='Inner radius type')
+        self.arg_parser.add_argument('--i_offset',type=float, default=100, help='Outer Radius')
+        self.arg_parser.add_argument('--kerf',type=float, default=0.5, help='Kerf (width) of cut')
+        self.arg_parser.add_argument('--spacing',type=float, default=0.5)
+        self.arg_parser.add_argument('--color1', type=Color, default='1923076095')
+        self.arg_parser.add_argument('--color2', type=Color, default='4012452351')
+        self.arg_parser.add_argument('--intensity', type=int, default=1)
+        self.arg_parser.add_argument('--speed', type=int, default=1)
+        self.arg_parser.add_argument('--pass_offset', type=int, default=1)
+        self.arg_parser.add_argument('--displaylasertag', type=inkex.Boolean, default=False) 
+        self.arg_parser.add_argument('--lasertag', default="=pass%n:%s:%i:%c=") 
+      
+    def effect(self):
+        global parent,nomTab,equalTabs,thickness,kerf,correction
+        
+        # Get access to main SVG document element and get its dimensions.
+        svg = self.document.getroot()
+        
+        # Get the attibutes:
+        widthDoc  = self.svg.unittouu(svg.get('width'))
+        heightDoc = self.svg.unittouu(svg.get('height'))
+        
         # Create a new layer.
-    layer = inkex.etree.SubElement(svg, 'g')
-    layer.set(inkex.addNS('label', 'inkscape'), 'newlayer')
-    layer.set(inkex.addNS('groupmode', 'inkscape'), 'layer')
-    
-    parent=self.current_layer
-    
+        layer = etree.SubElement(svg, 'g')
+        layer.set(inkex.addNS('label', 'inkscape'), 'newlayer')
+        layer.set(inkex.addNS('groupmode', 'inkscape'), 'layer')
+        
+        parent=self.svg.get_current_layer()
+        
         # Get script's option values.
-    unit=self.options.unit
-    kerf = self.unittouu( str(self.options.kerf)  + unit )
-    spaceing = self.unittouu( str(self.options.spaceing)  + unit )
-    
-    o_type=self.options.o_type
-    o_edges=self.options.o_edges
-    o_r_type=self.options.o_r_type
-    o_radius=self.unittouu(str(self.options.o_radius)+unit)+kerf
-    o_offset=math.radians(-self.options.o_offset)+math.pi
-    
-    i_type=self.options.i_type
-    i_edges=self.options.i_edges
-    i_r_type=self.options.i_r_type
-    i_radius=self.unittouu(str(self.options.i_radius)+unit)+kerf
-    i_offset=math.radians(-self.options.i_offset)+math.pi
-    
-    color1=self.options.color1
-    color2=self.options.color2
-    intensity=self.options.intensity
-    speed=self.options.speed
-    pass_offset=self.options.pass_offset
-    lasertag=self.options.lasertag
-    
-    if (o_r_type==2 and o_type==2):
-    #a/sin(alpa)=b/sin(beta)=c/sin(gamma)
-    #b=o_radius, alpha=(2*math.pi/o_edges), gamma=pi/2 , alpha+beta+gamma=pi->beta=pi-alpha+gamma
-    #search for c
-    #c=b*(sin(gamma)/sin(betta))
-      beta=math.pi/2-(math.pi/o_edges)
-      o_radius/=math.sin(beta)
-    if (o_r_type==3 and o_type==2):
-      beta=math.pi/2-(math.pi/o_edges)
-      o_radius*=math.sin(beta)/math.sin(math.pi/o_edges)
-    if (i_r_type==2 and i_type==3):
-    #a/sin(alpa)=b/sin(beta)=c/sin(gamma)
-    #b=o_radius, alpha=(2*math.pi/o_edges), gamma=pi/2 , alpha+beta+gamma=pi->beta=pi-alpha+gamma
-    #search for c
-    #c=b*(sin(gamma)/sin(betta))
-      beta=math.pi/2-(math.pi/i_edges)
-      i_radius/=math.sin(beta)
-    if (i_r_type==3 and i_type==3):
-      beta=math.pi/2-(math.pi/i_edges)
-      i_radius*=math.sin(beta)/math.sin(math.pi/o_edges)
-    
-    
-    #text = inkex.etree.Element(inkex.addNS('text','svg'))
-    #text.text = "Outside:"+str(self.uutounit(cabinet_width,unit))+"x"+str(self.uutounit(cabinet_depth,unit))+"x"+str(self.uutounit(cabinet_height,unit))+"  "
-    #layer.append(text)
-    
-    
-    if(o_type==1):
-      s=['M '+str(spaceing)+','+str(o_radius+spaceing)+'a'+str(o_radius)+','+str(o_radius)+' 0 1,0 '+str(2*o_radius)+',0'+'a'+str(o_radius)+','+str(o_radius)+' 0 1,0 '+str(-2*o_radius)+',0']
-    if(o_type==2):
-      stepsize=2*math.pi/o_edges
-      points=[]
-      
-      for i in range(o_edges):
-        points+=[(math.sin(o_offset+stepsize*i)*(o_radius+kerf),math.cos(o_offset+stepsize*i)*(o_radius+kerf))]
-      s=[svg_from_points(points,(o_radius+spaceing,o_radius+spaceing))]
-    if(i_type==2):
-      s+=['M '+str(spaceing+o_radius-i_radius)+','+str(o_radius+spaceing)+'a'+str(i_radius)+','+str(i_radius)+' 0 1,0 '+str(2*i_radius)+',0'+'a'+str(i_radius)+','+str(i_radius)+' 0 1,0 '+str(-2*i_radius)+',0']
-    if(i_type==3):
-      stepsize=2*math.pi/i_edges
-      points=[]
-      
-      for i in range(i_edges):
-        points+=[(math.sin(i_offset+stepsize*i)*(i_radius+kerf),math.cos(i_offset+stepsize*i)*(i_radius+kerf))]
-      s+=[svg_from_points(points,(o_radius+spaceing,o_radius+spaceing))]
-    groupdraw(s,[color1,color2])
-    
-    tag_1=lasertag
-    tag_1=tag_1.replace("%n",str(pass_offset+1)).replace("%s",str(speed)).replace("%i",str(intensity)).replace("%c",color2)
-    tag_2=lasertag
-    tag_2=tag_2.replace("%n",str(pass_offset+2)).replace("%s",str(speed)).replace("%i",str(intensity)).replace("%c",color1)
-    text = inkex.etree.Element(inkex.addNS('text','svg'))
-    text.text = tag_1
-    if (len(s)>1):
-      text.text+="  "+tag_2
-    layer.append(text) 
-# Create effect instance and apply it.
-effect = Polygon()
-effect.affect()
+        unit=self.options.unit
+        kerf = self.svg.unittouu( str(self.options.kerf)  + unit )
+        spacing = self.svg.unittouu( str(self.options.spacing)  + unit )
+        
+        o_type=self.options.o_type
+        o_edges=self.options.o_edges
+        o_r_type=self.options.o_r_type
+        o_radius=self.svg.unittouu(str(self.options.o_radius)+unit)+kerf
+        o_offset=math.radians(-self.options.o_offset)+math.pi
+        
+        i_type=self.options.i_type
+        i_edges=self.options.i_edges
+        i_r_type=self.options.i_r_type
+        i_radius=self.svg.unittouu(str(self.options.i_radius)+unit)+kerf
+        i_offset=math.radians(-self.options.i_offset)+math.pi
+        
+        color1=self.options.color1
+        color2=self.options.color2
+        intensity=self.options.intensity
+        speed=self.options.speed
+        pass_offset=self.options.pass_offset
+        lasertag=self.options.lasertag
+        
+        if (o_r_type==2 and o_type==2):
+        #a/sin(alpa)=b/sin(beta)=c/sin(gamma)
+        #b=o_radius, alpha=(2*math.pi/o_edges), gamma=pi/2 , alpha+beta+gamma=pi->beta=pi-alpha+gamma
+        #search for c
+        #c=b*(sin(gamma)/sin(betta))
+            beta=math.pi/2-(math.pi/o_edges)
+            o_radius/=math.sin(beta)
+        if (o_r_type==3 and o_type==2):
+            beta=math.pi/2-(math.pi/o_edges)
+            o_radius*=math.sin(beta)/math.sin(math.pi/o_edges)
+        if (i_r_type==2 and i_type==3):
+        #a/sin(alpa)=b/sin(beta)=c/sin(gamma)
+        #b=o_radius, alpha=(2*math.pi/o_edges), gamma=pi/2 , alpha+beta+gamma=pi->beta=pi-alpha+gamma
+        #search for c
+        #c=b*(sin(gamma)/sin(betta))
+            beta=math.pi/2-(math.pi/i_edges)
+            i_radius/=math.sin(beta)
+        if (i_r_type==3 and i_type==3):
+            beta=math.pi/2-(math.pi/i_edges)
+            i_radius*=math.sin(beta)/math.sin(math.pi/o_edges)
+        
+        
+        #text = etree.Element(inkex.addNS('text','svg'))
+        #text.text = "Outside:"+str(self.uutounit(cabinet_width,unit))+"x"+str(self.uutounit(cabinet_depth,unit))+"x"+str(self.uutounit(cabinet_height,unit))+"  "
+        #layer.append(text)
+        
+        
+        if(o_type==1):
+            s=['M '+str(spacing)+','+str(o_radius+spacing)+'a'+str(o_radius)+','+str(o_radius)+' 0 1,0 '+str(2*o_radius)+',0'+'a'+str(o_radius)+','+str(o_radius)+' 0 1,0 '+str(-2*o_radius)+',0']
+        if(o_type==2):
+            stepsize=2*math.pi/o_edges
+            points=[]
+          
+            for i in range(o_edges):
+              points+=[(math.sin(o_offset+stepsize*i)*(o_radius+kerf),math.cos(o_offset+stepsize*i)*(o_radius+kerf))]
+            s=[svg_from_points(points,(o_radius+spacing,o_radius+spacing))]
+        if(i_type==2):
+            s+=['M '+str(spacing+o_radius-i_radius)+','+str(o_radius+spacing)+'a'+str(i_radius)+','+str(i_radius)+' 0 1,0 '+str(2*i_radius)+',0'+'a'+str(i_radius)+','+str(i_radius)+' 0 1,0 '+str(-2*i_radius)+',0']
+        if(i_type==3):
+            stepsize=2*math.pi/i_edges
+            points=[]
+          
+            for i in range(i_edges):
+                points+=[(math.sin(i_offset+stepsize*i)*(i_radius+kerf),math.cos(i_offset+stepsize*i)*(i_radius+kerf))]
+            s+=[svg_from_points(points,(o_radius+spacing,o_radius+spacing))]
+        groupdraw(s,[color1,color2])
+        
+        if self.options.displaylasertag:
+            tag_1=lasertag
+            tag_1=tag_1.replace("%n",str(pass_offset+1)).replace("%s",str(speed)).replace("%i",str(intensity)).replace("%c",str(color2))
+            tag_2=lasertag
+            tag_2=tag_2.replace("%n",str(pass_offset+2)).replace("%s",str(speed)).replace("%i",str(intensity)).replace("%c",str(color1))
+            text = etree.Element(inkex.addNS('text','svg'))
+            text.text = tag_1
+            if (len(s)>1):
+                text.text+="  "+tag_2
+            layer.append(text) 
+
+Polygon().run()
